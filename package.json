@@ -56,7 +56,7 @@
     "test:types": "check-dts",
     "test:version": "node ./test/version.js",
     "test:coverage": "c8 pnpm unit",
-    "test:integration": "node ./test/integration.js",
+    "integration": "node ./test/integration.js",
     "test:size": "size-limit",
     "test": "FORCE_COLOR=1 pnpm run /^test:/",
     "unit": "uvu -r ts-node/register/transpile-only test \"\\.test\\.(ts|js)$\"",

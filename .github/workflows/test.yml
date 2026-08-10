@@ -1,15 +1,13 @@
 name: Test
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   full:
     name: Node.js Latest Full
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -26,8 +24,22 @@ jobs:
         run: pnpm install --ignore-scripts
       - name: Run tests
         run: pnpm test
+      - name: Pack the tarball
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/pack-output"
+          ./node_modules/.bin/clean-publish --without-publish --temp-dir "$HOME/publish"
+          cd "$HOME/publish"
+          npm pack --ignore-scripts
+          mv postcss-*.tgz "$GITHUB_WORKSPACE/pack-output/"
+      - name: Upload the tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: pack-output/postcss-*.tgz
+          if-no-files-found: error
   short:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         node-version:
@@ -53,6 +65,7 @@ jobs:
         run: pnpm run unit
   old:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         node-version:
@@ -64,23 +77,26 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
       - name: Install pnpm
-        uses: pnpm/action-setup@v1
+        uses: pnpm/action-setup@v3
         with:
-          version: 3
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      - name: Install Node.js ${{ matrix.node-version }}
+          version: 8
+      - name: Install Node.js 20 for install
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20
       - name: Install dependencies
         run: pnpm install --ignore-scripts
       - name: Downgrade TypeScript
         run: pnpm install typescript@4
+      - name: Install Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
       - name: Run unit tests
-        run: pnpm run old
+        run: node node_modules/uvu/bin.js -r "$GITHUB_WORKSPACE/test/old-node.js" -r ts-node/register/transpile-only test "\.test\.(ts|js)$"
   windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     name: Windows Quick
     steps:
       - name: Checkout the repository
