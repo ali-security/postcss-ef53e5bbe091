@@ -294,6 +294,101 @@ test('uses source map path as a root', () => {
   })
 })
 
+test('does not load map from non-.map file', () => {
+  let from = join(dir, 'a.css')
+  mkdirSync(dir)
+  writeFileSync(join(dir, 'a.txt'), map)
+  let input = parse('a{}\n/*# sourceMappingURL=a.txt */', { from }).source
+    ?.input
+  type(input?.map, 'undefined')
+})
+
+test('does not load map from outside the from folder', () => {
+  let from = join(dir, 'subdir', 'a.css')
+  mkdirSync(dir)
+  mkdirSync(join(dir, 'subdir'))
+  writeFileSync(join(dir, 'outside.map'), map)
+  let input = parse('a{}\n/*# sourceMappingURL=../outside.map */', { from })
+    .source?.input
+  type(input?.map, 'undefined')
+})
+
+test('loads map from outside the from folder with unsafeMap', () => {
+  let from = join(dir, 'subdir', 'a.css')
+  mkdirSync(dir)
+  mkdirSync(join(dir, 'subdir'))
+  writeFileSync(join(dir, 'outside.map'), map)
+  let input = parse('a{}\n/*# sourceMappingURL=../outside.map */', {
+    from,
+    unsafeMap: true
+  }).source?.input
+  is(input?.map.text, map)
+})
+
+test('does not load traversed map without from', () => {
+  let cwd = process.cwd()
+  mkdirSync(dir)
+  mkdirSync(join(dir, 'subdir'))
+  writeFileSync(join(dir, 'outside.map'), map)
+  try {
+    process.chdir(join(dir, 'subdir'))
+    let input = parse('a{}\n/*# sourceMappingURL=../outside.map */').source
+      ?.input
+    type(input?.map, 'undefined')
+  } finally {
+    process.chdir(cwd)
+  }
+})
+
+test('loads traversed map without from with unsafeMap', () => {
+  let cwd = process.cwd()
+  mkdirSync(dir)
+  mkdirSync(join(dir, 'subdir'))
+  writeFileSync(join(dir, 'outside.map'), map)
+  try {
+    process.chdir(join(dir, 'subdir'))
+    let input = parse('a{}\n/*# sourceMappingURL=../outside.map */', {
+      unsafeMap: true
+    }).source?.input
+    is(input?.map.text, map)
+  } finally {
+    process.chdir(cwd)
+  }
+})
+
+test('does not load absolute map without from', () => {
+  let cwd = process.cwd()
+  let absolute = join(dir, 'absolute.map')
+  mkdirSync(dir)
+  mkdirSync(join(dir, 'subdir'))
+  writeFileSync(absolute, map)
+  try {
+    process.chdir(join(dir, 'subdir'))
+    let input = parse('a{}\n/*# sourceMappingURL=' + absolute + ' */').source
+      ?.input
+    type(input?.map, 'undefined')
+  } finally {
+    process.chdir(cwd)
+  }
+})
+
+test('loads absolute map without from with unsafeMap', () => {
+  let cwd = process.cwd()
+  let absolute = join(dir, 'absolute.map')
+  mkdirSync(dir)
+  mkdirSync(join(dir, 'subdir'))
+  writeFileSync(absolute, map)
+  try {
+    process.chdir(join(dir, 'subdir'))
+    let input = parse('a{}\n/*# sourceMappingURL=' + absolute + ' */', {
+      unsafeMap: true
+    }).source?.input
+    is(input?.map.text, map)
+  } finally {
+    process.chdir(cwd)
+  }
+})
+
 test('uses current file path for source map', () => {
   let root = parse('a{b:1}', {
     from: join(__dirname, 'dir', 'subdir', 'a.css'),
