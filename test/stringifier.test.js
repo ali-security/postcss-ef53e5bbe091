@@ -285,4 +285,74 @@ test('handles document with three roots, with before and after raws', () => {
   is(s, 'a.one {}AFTER_ONEa.two {}AFTER_TWOa.three {}AFTER_THREE')
 })
 
+test('escapes </style & <!-- with \\3c CSS escape', () => {
+  let root = new Root()
+  root.append(new Rule({ selector: '</style>' }))
+  root.append(new AtRule({ name: 'media', params: '<style>' }))
+  root.append({ text: '</style><!--<style>' })
+  let rule = new Rule({ selector: 'a' })
+  rule.raws.before = '\n</style>'
+  rule.raws.after = '</style>'
+  rule.append(new Declaration({ prop: 'color', value: '</style>' }))
+  root.append(rule)
+
+  is(
+    root.toString(),
+    '\\3c /style> {}\n' +
+      '@media \\3c style>;\n' +
+      '/* \\3c /style>\\3c !--\\3c style> */\n' +
+      'a {\n' +
+      '    color: \\3c /style>' +
+      '\\3c /style>}'
+  )
+})
+
+test('does not escape Document raws', () => {
+  let document = new Document()
+  let root1 = new Root()
+  root1.append(new Rule({ selector: 'a' }))
+  let root2 = new Root({ raws: { after: '</style>' } })
+  root2.raws.before = '</style>'
+  root2.append(new Rule({ selector: 'b' }))
+  document.append(root1)
+  document.append(root2)
+
+  is(document.toString(), 'a {}</style>b {}</style>')
+})
+
+test('escapes </style in parsed before and ownSemicolon raws', () => {
+  let root = parse('a{};b{}')
+  root.first.raws.ownSemicolon = ';</style>'
+  root.last.raws.before = '</style>'
+
+  is(root.toString(), 'a{};\\3c /style>\\3c /style>b{}')
+})
+
+test('escapes </style in root after raw', () => {
+  let root = parse('a{}')
+  root.raws.after = '\n</style>'
+
+  is(root.toString(), 'a{}\n\\3c /style>')
+})
+
+test('escapes </style & <!-- in parsed values and comments', () => {
+  is(parse('a{color:red</style>}').toString(), 'a{color:red\\3c /style>}')
+  is(parse('a{content:"</style>"}').toString(), 'a{content:"\\3c /style>"}')
+  is(parse('/*</STYLE>*/a{}').toString(), '/*\\3c /STYLE>*/a{}')
+  is(parse('/*<!--*/a{}').toString(), '/*\\3c !--*/a{}')
+  is(
+    parse('@import url("</style>");').toString(),
+    '@import url("\\3c /style>");'
+  )
+})
+
+test('does not escape harmless less-than signs', () => {
+  is(parse('a[title="<b>"]{}').toString(), 'a[title="<b>"]{}')
+  is(parse('a{width:calc(1px)}').toString(), 'a{width:calc(1px)}')
+  is(
+    parse('@media (min-width:1px){a{}}').toString(),
+    '@media (min-width:1px){a{}}'
+  )
+})
+
 test.run()
